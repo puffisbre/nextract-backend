@@ -1,0 +1,38 @@
+services:
+  dashboard:
+    image: ${IMAGE_NAME}
+    hostname: backend-dashboard-g5
+    networks:
+      - dashboard-network-g5 # Internal network for service communication
+      - traefik-public 
+    environment:
+      PORT: 3000
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      DATABASE_URL: ${DATABASE_URL}
+      ORIGIN: ${ORIGIN}
+    deploy:
+      mode: replicated
+      restart_policy:
+          window: 300s
+          delay: 60s
+      replicas: 1
+      labels:
+          - traefik.enable=true
+          - traefik.docker.network=traefik-public
+          - traefik.constraint-label=traefik-public
+          - traefik.http.routers.dashboard-${STACK_NAME}-http.rule=Host(`${SERVICE_URL}`)
+          - traefik.http.routers.dashboard-${STACK_NAME}-http.entrypoints=http
+          - traefik.http.routers.dashboard-${STACK_NAME}-http.middlewares=https-redirect
+          - traefik.http.routers.dashboard-${STACK_NAME}-https.rule=Host(`${SERVICE_URL}`)
+          - traefik.http.routers.dashboard-${STACK_NAME}-https.entrypoints=https
+          - traefik.http.routers.dashboard-${STACK_NAME}-https.tls=true
+          - traefik.http.routers.dashboard-${STACK_NAME}-https.tls.certresolver=le
+          - traefik.http.services.dashboard-${STACK_NAME}.loadbalancer.server.port=3000
+          - traefik.http.routers.dashboard-${STACK_NAME}.tls.domains[0].main=cc25.chasacademy.dev
+          - traefik.http.routers.dashboard-${STACK_NAME}.tls.domains[0].sans=*.cc25.chasacademy.dev
+networks:
+  dashboard-network-g5:
+    name: ${TARGET_ENV}-dashboard-network-g5
+    external: true 
+  traefik-public:
+    external: true

@@ -1,0 +1,118 @@
+spec:
+  inputs:
+    TARGET_ENV:
+      description: 'The environment to deploy to'
+    PORTAINER_API_URL:
+      default: 'portainer.cc25.chasacademy.dev/api'
+      description: 'The URL for the Portainer API'
+    TRAEFIK_HOST_RULE_BASENAME:
+      default: ${STACK_NAME}.cc25.chasacademy.dev
+      description: 'The host rule for Traefik'
+    RESEND_API_KEY:
+      description: 'The API key for Resend'
+    DATABASE_URL:
+      description: 'The URL for the database'
+    ORIGIN:
+      description: 'The origin URL'
+    SERVICE_URL:
+      description: 'The service URL for the application'
+    
+---
+
+deploy:
+  stage: deploy
+  image: $utils_image
+  environment:
+    name: $[[ inputs.TARGET_ENV ]]
+    url: https://$[[ inputs.SERVICE_URL ]]
+    on_stop: stop_environment
+  script:
+    - |
+      set -e
+
+      # Authenticate with Portainer
+      export PORTAINER_TOKEN=$(curl -X POST "https://$[[ inputs.PORTAINER_API_URL ]]/auth" --json '{"username": "'$PORTAINER_USER'", "password": "'$PORTAINER_PASSWORD'"}' | jq -r '.jwt')
+      export STACK_NAME=$[[ inputs.TARGET_ENV ]]-$CI_PROJECT_NAME-g5
+      echo "Stack: $STACK_NAME"
+
+      # Define the image name
+      export IMAGE_NAME=$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
+      echo "Filling in the template file with envvars..."
+      export SERVICE_URL=$[[ inputs.SERVICE_URL ]]
+      echo "SERVICE_URL: $SERVICE_URL"
+      export TARGET_ENV="$[[ inputs.TARGET_ENV ]]"
+      echo "TARGET_ENV: $TARGET_ENV"
+      envsubst '$IMAGE_NAME','$STACK_NAME','$SERVICE_URL','$TARGET_ENV' < docker-compose-deploy.yml>deployable-compose.yml
+      cat deployable-compose.yml
+
+      # Get Portainer endpoint and swarm details
+      export ENDPOINT_ID=$(curl https://$[[ inputs.PORTAINER_API_URL ]]/endpoints -H "Authorization: Bearer $PORTAINER_TOKEN" | jq '.[] | select(.Name == "primary") | .Id')
+      echo "Endpoint: $ENDPOINT_ID"
+      export SWARM_ID=$(curl https://$[[ inputs.PORTAINER_API_URL ]]/endpoints -H "Authorization: Bearer $PORTAINER_TOKEN" | jq '.[] | select(.Name == "primary") | .Snapshots[0].DockerSnapshotRaw.Info.Swarm.Cluster.ID' -r)
+      echo "Swarm: $SWARM_ID"
+
+      # Construct the JSON array for environment variables
+      export ENV_VARS=$(jq -n \
+        --arg BACKEND_PORT "3000" \
+        --arg RESEND_API_KEY "$[[ inputs.RESEND_API_KEY ]]" \
+        --arg DATABASE_URL "$[[ inputs.DATABASE_URL ]]" \
+        --arg ORIGIN "$[[ inputs.ORIGIN ]]" \
+        '[{"name": "BACKEND_PORT", "value": $BACKEND_PORT}, {"name": "RESEND_API_KEY", "value": $RESEND_API_KEY}, {"name": "DATABASE_URL", "value": $DATABASE_URL},{"name": "ORIGIN", "value": $ORIGIN}]' 
+      )
+      echo "Environment Variables: $ENV_VARS"
+
+      # Check if the stack exists
+      echo "Checking if $STACK_NAME is present..."
+      STACK_ID=$(curl https://$[[ inputs.PORTAINER_API_URL ]]/stacks -H "Authorization: Bearer $PORTAINER_TOKEN" | jq '.[] | select(.Name == "'$STACK_NAME'") | .Id')
+      echo "Stack id: \"$STACK_ID\""
+      if [[ "$STACK_ID" = "" ]]
+      then
+        echo "Creating stack $STACK_NAME"
+        curl -X POST https://$[[ inputs.PORTAINER_API_URL ]]/stacks/create/swarm/file?endpointId=$ENDPOINT_ID \
+          -H "Authorization: Bearer $PORTAINER_TOKEN" \
+          -F Name="$STACK_NAME" \
+          -F SwarmID="$SWARM_ID" \
+          -F Env="$ENV_VARS" \
+          -F file=@deployable-compose.yml -v | jq
+      else
+        echo "Updating stack $STACK_ID $STACK_NAME"
+        export COMPOSE_CONTENTS=$(cat deployable-compose.yml)
+        export JSON_PAYLOAD=$(jq --null-input --arg compose "$COMPOSE_CONTENTS" '{"prune": true, "pullImage": true, "stackFileContent": $compose, "env": '"$ENV_VARS"'}')
+        echo "$JSON_PAYLOAD"
+        curl -X PUT https://$[[ inputs.PORTAINER_API_URL ]]/stacks/$STACK_ID?endpointId=$ENDPOINT_ID \
+          -H "Authorization: Bearer $PORTAINER_TOKEN" \
+          --json "$JSON_PAYLOAD" | jq
+      fi
+
+stop_environment:
+  stage: teardown
+  environment:
+    name: $[[ inputs.TARGET_ENV ]]
+    action: stop
+  when: manual
+  script:
+    - |
+      set -e
+
+      # Authenticate with Portainer
+      export PORTAINER_TOKEN=$(curl -X POST "https://$[[ inputs.PORTAINER_API_URL ]]/auth" --json '{"username": "'$PORTAINER_USER'", "password": "'$PORTAINER_PASSWORD'"}' | jq -r '.jwt')
+      export STACK_NAME=$[[ inputs.TARGET_ENV ]]-$CI_PROJECT_NAME-g5
+      echo "Stack: $STACK_NAME"
+
+      # Get Portainer endpoint and swarm details
+      export ENDPOINT_ID=$(curl https://$[[ inputs.PORTAINER_API_URL ]]/endpoints -H "Authorization: Bearer $PORTAINER_TOKEN" | jq '.[] | select(.Name == "primary") | .Id')
+      echo "Endpoint: $ENDPOINT_ID"
+      export SWARM_ID=$(curl https://$[[ inputs.PORTAINER_API_URL ]]/endpoints -H "Authorization: Bearer $PORTAINER_TOKEN" | jq '.[] | select(.Name == "primary") | .Snapshots[0].DockerSnapshotRaw.Info.Swarm.Cluster.ID' -r)
+      echo "Swarm: $SWARM_ID"
+
+      echo "Checking if $STACK_NAME is present..."
+      STACK_ID=$(curl https://$[[ inputs.PORTAINER_API_URL ]]/stacks -H "Authorization: Bearer $PORTAINER_TOKEN" | jq '.[] | select(.Name == "'$STACK_NAME'") | .Id')
+      echo "Stack id: \"$STACK_ID\""
+      if [[ "$STACK_ID" = "" ]]
+      then
+        echo "Stack $STACK_ID $STACK_NAME not found!"
+        exit 1
+      else
+        echo "Deleting stack $STACK_ID $STACK_NAME"
+        curl -X DELETE https://$[[ inputs.PORTAINER_API_URL ]]/stacks/$STACK_ID?endpointId=$ENDPOINT_ID -H "Authorization: Bearer $PORTAINER_TOKEN"
+      fi

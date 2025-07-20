@@ -1,0 +1,8 @@
+buildImage-job:
+  image: docker:20
+  stage: package
+  before_script:
+    - docker login $CI_REGISTRY -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD
+  script:
+    - echo "Building the image"
+    - docker buildx build --build-arg DATABASE_URL=$DATABASE_URL --target runner -t $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG --push .

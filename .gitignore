@@ -1,0 +1,11 @@
+node_modules/
+dist/
+localfiles/
+**/migrations/
+
+
+.env
+*.env
+*.local
+*.log
+.eslintcache

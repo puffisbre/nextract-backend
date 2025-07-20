@@ -1,0 +1,18 @@
+build-job:
+  image: node:18-alpine3.20
+  stage: build
+  rules:
+      - if: $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^feature\/.*/i
+        changes:
+          - "src/**"
+          - "package*.json"
+          - "tsconfig.json"
+          - "eslint*.mjs"
+  script:
+    - echo "Installing Node dependencies"
+    - npm install
+    - echo "Generating Prisma client"
+    - npm run prisma:dbpull && npm run prisma:generate
+    - echo "Building the Node application"
+    - npm run build
+    - echo "Generated build files in the dist directory"

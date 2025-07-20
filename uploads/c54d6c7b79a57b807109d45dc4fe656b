@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<catalog>
+  <product>
+    <id>1001</id>
+    <name>Blue T-Shirt</name>
+    <category>Clothing</category>
+    <price currency="USD">19.99</price>
+    <stock>150</stock>
+    <brand>UrbanWear</brand>
+    <size>M</size>
+    <color>Blue</color>
+  </product>
+  <product>
+    <id>1002</id>
+    <name>Black Jeans</name>
+    <category>Clothing</category>
+    <price currency="EUR">49.99</price>
+    <stock>80</stock>
+    <brand>DenimPro</brand>
+    <size>32</size>
+    <color>Black</color>
+  </product>
+  <product>
+    <id>1003</id>
+    <name>Leather Jacket</name>
+    <category>Outerwear</category>
+    <price currency="SEK">1499</price>
+    <stock>35</stock>
+    <brand>NordicStyle</brand>
+    <size>L</size>
+    <color>Brown</color>
+  </product>
+</catalog>

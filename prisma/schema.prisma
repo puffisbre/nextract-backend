@@ -1,0 +1,67 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Admin {
+  id          String        @id @default(uuid())
+  email       String        @unique
+  password    String
+  restoredAPI RestoredAPI[]
+  User        User[]
+}
+
+model OriginalApi {
+  id            String        @id @default(uuid())
+  apiUrl        String
+  apiKey        String
+  userId        String
+  restoredAPIid String?
+  finishedApis  FinishedAPI[] @relation("OriginalApiToFinishedAPI")
+  restoredAPI   RestoredAPI?  @relation(fields: [restoredAPIid], references: [id])
+  user          User          @relation(fields: [userId], references: [id])
+}
+
+model FinishedAPI {
+  id            String       @id @default(uuid())
+  items         Json         @default("[]")
+  userId        String
+  originalApiId String?
+  APIname       String?      @default("")
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime?
+  originalApi   OriginalApi? @relation("OriginalApiToFinishedAPI", fields: [originalApiId], references: [id])
+  user          User         @relation(fields: [userId], references: [id])
+}
+
+model RestoredAPI {
+  id          String        @id @default(uuid())
+  adminId     String
+  originalApi OriginalApi[]
+  admin       Admin         @relation(fields: [adminId], references: [id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model User {
+  id           String        @id @default(uuid())
+  email        String        @unique
+  password     String
+  adminId      String?
+  company      String?       @default("")
+  chatSessions ChatSession[]
+  finishedAPI  FinishedAPI[]
+  originalAPI  OriginalApi[]
+  Admin        Admin?        @relation(fields: [adminId], references: [id])
+}
+
+model ChatSession {
+  id        String   @id @default(uuid())
+  userId    String
+  messages  Json
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}

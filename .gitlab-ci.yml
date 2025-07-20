@@ -1,0 +1,35 @@
+stages:
+  - build
+  - package
+  - deploy
+  - teardown
+variables:
+  utils_image: $CI_REGISTRY/$CI_PROJECT_NAMESPACE/utilities/docker-utils:latest
+
+cache:
+  paths:
+    - node_modules/
+
+include:
+  - local: deployment/build_test.yml
+  - local: deployment/generateArtifact.yml
+    rules:
+      - if: $CI_COMMIT_BRANCH == 'dev' || $CI_COMMIT_BRANCH == 'main' || $CI_COMMIT_BRANCH == 'feature/pipelineTesting'
+  - local: deployment/deploy.yml
+    inputs:
+      TARGET_ENV: dev
+      RESEND_API_KEY: $RESEND_API_KEY
+      DATABASE_URL: $DATABASE_URL
+      ORIGIN: $DEV_ORIGIN
+      SERVICE_URL: dev-nextract-backend.cc25.chasacademy.dev
+    rules:
+      - if: $CI_COMMIT_BRANCH == 'dev' || $CI_COMMIT_BRANCH == 'feature/pipelineTesting'
+  - local: deployment/deploy.yml
+    inputs:
+      TARGET_ENV: prod
+      RESEND_API_KEY: $RESEND_API_KEY
+      DATABASE_URL: $DATABASE_URL
+      ORIGIN: $PROD_ORIGIN
+      SERVICE_URL: nextract-backend.cc25.chasacademy.dev
+    rules:
+      - if: $CI_COMMIT_BRANCH == 'main'
