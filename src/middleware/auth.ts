@@ -29,6 +29,3 @@ export function verifyToken(req: AuthRequest, res: Response, next: NextFunction)
     return;
   }
 }
-
-// Auth header Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJmZmVlNGRmZS00MTkyLTQ2ZDAtOWVlZi1lOGE1OTY1NDcwYTMiLCJpYXQiOjE3NDY4MTQ2MTgsImV4cCI6MTc0Njg1NzgxOH0.gJY2VGtNA2Cq0xqVZ55FJpAF2DCnXfQGixZrct7Cr0c
-// Auth header Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJmZmVlNGRmZS00MTkyLTQ2ZDAtOWVlZi1lOGE1OTY1NDcwYTMiLCJpYXQiOjE3NDY4MTc4NDMsImV4cCI6MTc0Njg2MTA0M30.XP_T4lSVVeffNSQni88rqzYq83x8JHqvcQ8KcF2mDFQ
